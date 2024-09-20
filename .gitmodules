@@ -1,0 +1,3 @@
+[submodule "simple_lio_localization"]
+	path = simple_lio_localization
+	url = https://github.com/kiyoshiiriemon/simple_lio_localization

@@ -1,0 +1,13 @@
+<launch>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find simple_fastlio_localization)/config/loc.rviz" />
+
+    <arg name="map_file" />
+    <arg name="initial_pose" default="0.0 0.0 0.0 0.0 0.0 0.0 1.0" />
+
+    <node name="simple_fastlio_localization_node" pkg="simple_fastlio_localization" type="simple_fastlio_localization_node" output="screen">
+        <param name="map_file" value="$(arg map_file)" />
+        <param name="initial_pose" value="$(arg initial_pose)" />
+    </node>
+
+</launch>
+

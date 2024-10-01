@@ -13,16 +13,70 @@
 class FastLIOHandler
 {
 public:
-    FastLIOHandler() : nh_(), odom_buffer_(10), cloud_buffer_(10)
+    FastLIOHandler() : nh_("~"), odom_buffer_(10), cloud_buffer_(10)
     {
-        odom_sub_ = nh_.subscribe("/Odometry", 10, &FastLIOHandler::odomCallback, this);
+        odom_sub_  = nh_.subscribe("/Odometry", 10, &FastLIOHandler::odomCallback, this);
         cloud_sub_ = nh_.subscribe("/cloud_registered_body", 10, &FastLIOHandler::cloudCallback, this);
-        pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/estimated_pose", 10);
-        loc_.loadMap("/tmp/map.pcd");
+        pose_pub_  = nh_.advertise<geometry_msgs::PoseStamped>("/estimated_pose", 10);
+        map_pub_   = nh_.advertise<sensor_msgs::PointCloud2>("/map_cloud", 1, true);
+        std::string map_file_path;
+        if (!nh_.getParam("map_file", map_file_path))
+        {
+            ROS_ERROR("parameter map_file not specified");
+            abort();
+        }
+        if (loc_.loadMap(map_file_path)) {
+            publish_map(map_file_path);
+        }
+
         Eigen::Isometry3d initial_pose = Eigen::Isometry3d::Identity();
-        initial_pose.translation() << 0, 0, 0.4;
-        initial_pose.rotate(Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitY()));
+        std::string initial_pose_str;
+        if (nh_.getParam("initial_pose", initial_pose_str))
+        {
+            initial_pose = parse_posestr(initial_pose_str);
+        }
         loc_.setInitialPose(initial_pose);
+    }
+
+    void publish_map(const std::string &map_file_path)
+    {
+        pcl::PointCloud<pcl::PointXYZI>::Ptr map_cloud(new pcl::PointCloud<pcl::PointXYZI>());
+        if (pcl::io::loadPCDFile<pcl::PointXYZI>(map_file_path, *map_cloud) == -1)
+        {
+            return;
+        }
+
+        sensor_msgs::PointCloud2 map_msg;
+        pcl::toROSMsg(*map_cloud, map_msg);
+        map_msg.header.frame_id = "map";
+        map_pub_.publish(map_msg);
+    }
+
+    Eigen::Isometry3d parse_posestr(const std::string &pose_str)
+    {
+        double x = 0.0, y = 0.0, z = 0.4;
+        double qx = 0.0, qy = 0.0, qz = 0.0, qw = 1.0;
+
+        std::istringstream iss(pose_str);
+        iss >> x >> y >> z >> qx >> qy >> qz >> qw;
+        Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+        pose.translation() << x, y, z;
+
+        ROS_INFO("parse pose str trans=(%f %f %f) quat=(%f %f %f %f)", x, y, z, qx, qy, qz, qw);
+
+        Eigen::Quaterniond q(qw, qx, qy, qz);
+        if (q.norm() == 0)
+        {
+            std::cerr << "invalid quaternion" << std::endl;
+            q = Eigen::Quaterniond(1, 0, 0, 0);
+        }
+        else
+        {
+            q.normalize();
+        }
+        pose.rotate(q);
+
+        return pose;
     }
 
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
@@ -112,6 +166,7 @@ private:
     ros::Subscriber odom_sub_;
     ros::Subscriber cloud_sub_;
     ros::Publisher pose_pub_;
+    ros::Publisher map_pub_;
     tf2_ros::TransformBroadcaster tf_broadcaster_;
     boost::circular_buffer<nav_msgs::Odometry> odom_buffer_;
     boost::circular_buffer<simple_lio_localization::PointCloudPCL::Ptr> cloud_buffer_;

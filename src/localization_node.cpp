@@ -50,6 +50,9 @@ public:
             initial_pose = parse_posestr(initial_pose_str);
         }
         loc_.setInitialPose(initial_pose);
+        simple_lio_localization::Params params;
+        params.update_interval = 2;
+        loc_.setParams(params);
     }
 
     void publish_map(const std::string &map_file_path)

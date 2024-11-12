@@ -21,6 +21,7 @@ public:
     {
         this->declare_parameter("map_file", rclcpp::PARAMETER_STRING);
         this->declare_parameter("initial_pose", rclcpp::PARAMETER_STRING);
+        this->declare_parameter("accumulate_frames", 4);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -51,7 +52,14 @@ public:
         }
         loc_.setInitialPose(initial_pose);
         simple_lio_localization::Params params;
-        params.update_interval = 2;
+        int nframes;
+        if (this->get_parameter("accumulate_frames", nframes)) {
+            if (nframes > 0) {
+                params.update_interval = nframes;
+            } else {
+                params.update_interval = 1;
+            }
+        }
         loc_.setParams(params);
     }
 

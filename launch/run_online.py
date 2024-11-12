@@ -21,6 +21,11 @@ def generate_launch_description():
             default_value='0.0 0.0 0.0 0.0 0.0 0.0 1.0',
             description='Initial pose as x y z qx qy qz qw'
         ),
+        DeclareLaunchArgument(
+            'accumulate_frames',
+            default_value='4',
+            description='No. of frames accumulate for matching'
+        ),
 
         # Launch RViz first
         Node(
@@ -42,7 +47,8 @@ def generate_launch_description():
                     output='screen',
                     parameters=[
                         {'map_file': LaunchConfiguration('map_file')},
-                        {'initial_pose': LaunchConfiguration('initial_pose')}
+                        {'initial_pose': LaunchConfiguration('initial_pose'),
+                         'accumulate_frames': LaunchConfiguration('accumulate_frames')}
                     ]
                 )
             ]

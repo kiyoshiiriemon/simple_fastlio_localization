@@ -36,6 +36,17 @@ public:
             initial_pose = parse_posestr(initial_pose_str);
         }
         loc_.setInitialPose(initial_pose);
+        simple_lio_localization::Params params;
+        int nframes;
+        if (nh_.getParam("accumulate_frames", nframes)) {
+            if (nframes > 0) {
+                params.update_interval = nframes;
+            } else {
+                params.update_interval = 1;
+            }
+        }
+        ROS_INFO("accumulate frames: %d", params.update_interval);
+        loc_.setParams(params);
     }
 
     void publish_map(const std::string &map_file_path)

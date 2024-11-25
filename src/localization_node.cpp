@@ -37,6 +37,7 @@ public:
         }
         loc_.setInitialPose(initial_pose);
         simple_lio_localization::Params params;
+        params.min_update_distance = 2.0;
         int nframes;
         if (nh_.getParam("accumulate_frames", nframes)) {
             if (nframes > 0) {
@@ -47,6 +48,10 @@ public:
         }
         ROS_INFO("accumulate frames: %d", params.update_interval);
         loc_.setParams(params);
+    }
+
+    void terminate() {
+        loc_.terminate();
     }
 
     void publish_map(const std::string &map_file_path)
@@ -188,8 +193,9 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "fast_lio_handler_node");
 
     FastLIOHandler handler;
-
     ros::spin();
+    handler.terminate();
+    std::cout << "terminated" << std::endl;
 
     return 0;
 }

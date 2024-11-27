@@ -6,6 +6,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/transform_broadcaster.h>
 
+#include <mutex>
 #include <boost/circular_buffer.hpp>
 #include "simple_lio_loc.h"
 #include "loc_types.h"
@@ -19,6 +20,7 @@ public:
         cloud_sub_ = nh_.subscribe("/cloud_registered_body", 10, &FastLIOHandler::cloudCallback, this);
         pose_pub_  = nh_.advertise<geometry_msgs::PoseStamped>("/estimated_pose", 10);
         map_pub_   = nh_.advertise<sensor_msgs::PointCloud2>("/map_cloud", 1, true);
+        registration_pub_   = nh_.advertise<sensor_msgs::PointCloud2>("/loc_registered_cloud", 1);
         std::string map_file_path;
         if (!nh_.getParam("map_file", map_file_path))
         {
@@ -41,13 +43,18 @@ public:
         int nframes;
         if (nh_.getParam("accumulate_frames", nframes)) {
             if (nframes > 0) {
-                params.update_interval = nframes;
+                params.registration_interval = nframes;
             } else {
-                params.update_interval = 1;
+                params.registration_interval = 1;
             }
         }
-        ROS_INFO("accumulate frames: %d", params.update_interval);
+        ROS_INFO("accumulate frames: %d", params.registration_interval);
         loc_.setParams(params);
+        loc_.setRegistrationDoneCallback(std::bind(&FastLIOHandler::registrationCallback, this, std::placeholders::_1));
+        bool asynchronous_registration = false;
+        if (nh_.getParam("asynchronous_registration", asynchronous_registration)) {
+            if (asynchronous_registration) loc_.startAsynchronousRegistration();
+        }
     }
 
     void terminate() {
@@ -116,8 +123,26 @@ public:
         update();
     }
 
+    void registrationCallback(const simple_lio_localization::RegistrationResult &result)
+    {
+        std::lock_guard<std::mutex> lock(registered_cloud_mutex_);
+        ROS_INFO("Registration done callback time=%fms, converged=%d", result.elapsed_sec*1000, result.converged);
+        loc_registered_cloud_ = result.pc_registered;
+    }
+
     void update()
     {
+        {
+            //publish registered cloud if any
+            std::lock_guard<std::mutex> lock(registered_cloud_mutex_);
+            if (!loc_registered_cloud_.empty()) {
+                sensor_msgs::PointCloud2 cloud_msg;
+                pcl::toROSMsg(loc_registered_cloud_, cloud_msg);
+                cloud_msg.header.frame_id = "map";
+                registration_pub_.publish(cloud_msg);
+            }
+            loc_registered_cloud_.clear();
+        }
         int odom_size = odom_buffer_.size();
         int cloud_size = cloud_buffer_.size();
         ROS_INFO("Odom buffer size: %d, Cloud buffer size: %d", odom_size, cloud_size);
@@ -183,9 +208,12 @@ private:
     ros::Subscriber cloud_sub_;
     ros::Publisher pose_pub_;
     ros::Publisher map_pub_;
+    ros::Publisher registration_pub_;
     tf2_ros::TransformBroadcaster tf_broadcaster_;
     boost::circular_buffer<nav_msgs::Odometry> odom_buffer_;
     boost::circular_buffer<simple_lio_localization::PointCloudPCL::Ptr> cloud_buffer_;
+    std::mutex registered_cloud_mutex_;
+    simple_lio_localization::PointCloudPCL loc_registered_cloud_;
 };
 
 int main(int argc, char** argv)

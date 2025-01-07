@@ -3,13 +3,15 @@
 
     <arg name="map_file" />
     <arg name="initial_pose" default="0.0 0.0 0.0 0.0 0.0 0.0 1.0" />
-    <arg name="accumulate_frames" default="1" />
+    <arg name="frames_accumulate" default="1" />
+    <arg name="min_registration_interval" default="0" />
     <arg name="asynchronous_registration" default="true" />
 
     <node name="simple_fastlio_localization_node" pkg="simple_fastlio_localization" type="simple_fastlio_localization_node" output="screen">
         <param name="map_file" value="$(arg map_file)" />
         <param name="initial_pose" value="$(arg initial_pose)" />
-        <param name="accumulate_frames" value="$(arg accumulate_frames)" />
+        <param name="frames_accumulate" value="$(arg frames_accumulate)" />
+        <param name="min_registration_interval" value="$(arg min_registration_interval)" />
         <param name="asynchronous_registration" value="$(arg asynchronous_registration)" />
     </node>
 

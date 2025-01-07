@@ -39,16 +39,19 @@ public:
         }
         loc_.setInitialPose(initial_pose);
         simple_lio_localization::Params params;
-        params.min_update_distance = 2.0;
+        params.min_registration_distance = 2.0;
         int nframes;
         if (nh_.getParam("accumulate_frames", nframes)) {
             if (nframes > 0) {
-                params.registration_interval = nframes;
+                params.frames_accumulate = nframes;
             } else {
-                params.registration_interval = 1;
+                params.frames_accumulate = 1;
             }
         }
-        ROS_INFO("accumulate frames: %d", params.registration_interval);
+        if (nh_.getParam("min_registration_distance", params.min_registration_distance)) {
+            ROS_INFO("min registration distance: %f", params.min_registration_distance);
+        }
+        ROS_INFO("accumulate frames: %d", params.frames_accumulate);
         loc_.setParams(params);
         loc_.setRegistrationDoneCallback(std::bind(&FastLIOHandler::registrationCallback, this, std::placeholders::_1));
         bool asynchronous_registration = false;

@@ -41,7 +41,7 @@ public:
         simple_lio_localization::Params params;
         params.min_registration_distance = 2.0;
         int nframes;
-        if (nh_.getParam("accumulate_frames", nframes)) {
+        if (nh_.getParam("frames_accumulate", nframes)) {
             if (nframes > 0) {
                 params.frames_accumulate = nframes;
             } else {

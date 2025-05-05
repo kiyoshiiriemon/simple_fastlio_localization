@@ -1,33 +1,44 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.actions import DeclareLaunchArgument, TimerAction, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+
+def launch_setup(context, *args, **kwargs):
+    map_file = LaunchConfiguration('map_file').perform(context)
+    initial_pose = LaunchConfiguration('initial_pose').perform(context)
+    frames_accumulate = LaunchConfiguration('frames_accumulate').perform(context)
+    min_registration_distance = LaunchConfiguration('min_registration_distance').perform(context)
+    async_registration = LaunchConfiguration('async_registration').perform(context)
+
+    return [
+        Node(
+            package='simple_fastlio_localization',
+            executable='localization_node',
+            name='localization_node',
+            output='screen',
+            parameters=[{
+                'map_file': map_file,
+                'initial_pose': initial_pose,
+                'frames_accumulate': int(frames_accumulate),
+                'min_registration_distance': float(min_registration_distance),
+                'async_registration': async_registration.lower() == 'true',
+            }]
+        )
+    ]
 
 def generate_launch_description():
     package_path = get_package_share_directory('simple_fastlio_localization')
     rviz_config_path = os.path.join(package_path, 'rviz', 'loc.rviz')
 
     return LaunchDescription([
-        # Declare arguments
-        DeclareLaunchArgument(
-            'map_file',
-            default_value='',
-            description='Path to the map file'
-        ),
-        DeclareLaunchArgument(
-            'initial_pose',
-            default_value='0.0 0.0 0.0 0.0 0.0 0.0 1.0',
-            description='Initial pose as x y z qx qy qz qw'
-        ),
-        DeclareLaunchArgument(
-            'accumulate_frames',
-            default_value='4',
-            description='No. of frames accumulate for matching'
-        ),
+        DeclareLaunchArgument('map_file', default_value='', description='Path to the map file'),
+        DeclareLaunchArgument('initial_pose', default_value='0.0 0.0 0.0 0.0 0.0 0.0 1.0', description='Initial pose'),
+        DeclareLaunchArgument('frames_accumulate', default_value='1', description='No. of frames accumulate for matching'),
+        DeclareLaunchArgument('min_registration_distance', default_value='0', description='Minimum distance for registration'),
+        DeclareLaunchArgument('async_registration', default_value='true', description='Async registration'),
 
-        # Launch RViz first
         Node(
             package='rviz2',
             executable='rviz2',
@@ -36,22 +47,11 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # Add a delay of 3 seconds before launching the localization node
         TimerAction(
-            period=3.0,  # Delay in seconds
+            period=3.0,
             actions=[
-                Node(
-                    package='simple_fastlio_localization',
-                    executable='localization_node',
-                    name='localization_node',
-                    output='screen',
-                    parameters=[
-                        {'map_file': LaunchConfiguration('map_file')},
-                        {'initial_pose': LaunchConfiguration('initial_pose'),
-                         'accumulate_frames': LaunchConfiguration('accumulate_frames')}
-                    ]
-                )
+                OpaqueFunction(function=launch_setup)
             ]
-        ),
+        )
     ])
 

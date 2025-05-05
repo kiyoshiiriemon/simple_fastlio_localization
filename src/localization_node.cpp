@@ -21,7 +21,9 @@ public:
     {
         this->declare_parameter("map_file", rclcpp::PARAMETER_STRING);
         this->declare_parameter("initial_pose", rclcpp::PARAMETER_STRING);
-        this->declare_parameter("accumulate_frames", 4);
+        this->declare_parameter("frames_accumulate", rclcpp::PARAMETER_INTEGER);
+        this->declare_parameter("min_registration_distance", rclcpp::PARAMETER_DOUBLE);
+        this->declare_parameter("asynchronous_registration", rclcpp::PARAMETER_BOOL);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -52,12 +54,19 @@ public:
         }
         loc_.setInitialPose(initial_pose);
         simple_lio_localization::Params params;
-        int nframes;
-        if (this->get_parameter("accumulate_frames", nframes)) {
-            if (nframes > 0) {
-                params.update_interval = nframes;
-            } else {
-                params.update_interval = 1;
+        std::string frames_accumulate_str;
+        if (!this->get_parameter("frames_accumulate", params.frames_accumulate)) {
+            std::cout << "parameter frames_accumulate not specified, using default value" << std::endl;
+            params.frames_accumulate = 1;
+        }
+        if (!this->get_parameter("min_registration_distance", params.min_registration_distance)) {
+            std::cout << "parameter min_registration_distance not specified, using default value" << std::endl;
+            params.min_registration_distance = 0;
+        }
+        bool asynchronous_registration = false;
+        if (this->get_parameter("asynchronous_registration", asynchronous_registration)){
+            if (asynchronous_registration) {
+                loc_.startAsynchronousRegistration();
             }
         }
         loc_.setParams(params);

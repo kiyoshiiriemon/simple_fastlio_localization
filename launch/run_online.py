@@ -11,6 +11,14 @@ def launch_setup(context, *args, **kwargs):
     frames_accumulate = LaunchConfiguration('frames_accumulate').perform(context)
     min_registration_distance = LaunchConfiguration('min_registration_distance').perform(context)
     async_registration = LaunchConfiguration('async_registration').perform(context)
+    
+    # Topic remapping configurations
+    odom_topic = LaunchConfiguration('odom_topic').perform(context)
+    cloud_body_topic = LaunchConfiguration('cloud_body_topic').perform(context)
+    cloud_odom_topic = LaunchConfiguration('cloud_odom_topic').perform(context)
+    pose_topic = LaunchConfiguration('pose_topic').perform(context)
+    map_topic = LaunchConfiguration('map_topic').perform(context)
+    registration_topic = LaunchConfiguration('registration_topic').perform(context)
 
     return [
         Node(
@@ -23,8 +31,18 @@ def launch_setup(context, *args, **kwargs):
                 'initial_pose': initial_pose,
                 'frames_accumulate': int(frames_accumulate),
                 'min_registration_distance': float(min_registration_distance),
-                'async_registration': async_registration.lower() == 'true',
-            }]
+                'asynchronous_registration': async_registration.lower() == 'true',
+            }],
+            remappings=[
+                # Input topic remappings (only if different from default)
+                ('/Odometry', odom_topic),
+                ('/cloud_registered_body', cloud_body_topic),
+                ('/cloud_registered', cloud_odom_topic),
+                # Output topic remappings (only if different from default)
+                ('/estimated_pose', pose_topic),
+                ('/map_cloud', map_topic),
+                ('/loc_registered_cloud', registration_topic),
+            ]
         )
     ]
 
@@ -33,11 +51,20 @@ def generate_launch_description():
     rviz_config_path = os.path.join(package_path, 'rviz', 'loc.rviz')
 
     return LaunchDescription([
+        # Existing parameters
         DeclareLaunchArgument('map_file', default_value='', description='Path to the map file'),
         DeclareLaunchArgument('initial_pose', default_value='0.0 0.0 0.0 0.0 0.0 0.0 1.0', description='Initial pose'),
         DeclareLaunchArgument('frames_accumulate', default_value='1', description='No. of frames accumulate for matching'),
         DeclareLaunchArgument('min_registration_distance', default_value='0', description='Minimum distance for registration'),
         DeclareLaunchArgument('async_registration', default_value='true', description='Async registration'),
+        
+        # Topic remapping arguments
+        DeclareLaunchArgument('odom_topic', default_value='/Odometry', description='Odometry topic name'),
+        DeclareLaunchArgument('cloud_body_topic', default_value='/cloud_registered_body', description='Body frame cloud topic name'),
+        DeclareLaunchArgument('cloud_odom_topic', default_value='/cloud_registered', description='Odometry frame cloud topic name'),
+        DeclareLaunchArgument('pose_topic', default_value='/estimated_pose', description='Estimated pose output topic name'),
+        DeclareLaunchArgument('map_topic', default_value='/map_cloud', description='Map cloud output topic name'),
+        DeclareLaunchArgument('registration_topic', default_value='/loc_registered_cloud', description='Registration result cloud topic name'),
 
         Node(
             package='rviz2',

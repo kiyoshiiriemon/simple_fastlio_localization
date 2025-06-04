@@ -126,7 +126,7 @@ public:
 
         geometry_msgs::msg::TransformStamped tf_odom_to_base;
         tf_odom_to_base.header.stamp = msg->header.stamp;
-        tf_odom_to_base.header.frame_id = "lio_odom";
+        tf_odom_to_base.header.frame_id = lio_frame_;
         tf_odom_to_base.child_frame_id = "base_link";
         tf_odom_to_base.transform.translation.x = msg->pose.pose.position.x;
         tf_odom_to_base.transform.translation.y = msg->pose.pose.position.y;
@@ -139,6 +139,7 @@ public:
 
     void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
+        lio_frame_ = msg->header.frame_id;
         simple_lio_localization::PointCloudPCL::Ptr cloud(new simple_lio_localization::PointCloudPCL);
         pcl::fromROSMsg(*msg, *cloud);
 
@@ -206,7 +207,7 @@ public:
         geometry_msgs::msg::TransformStamped transformStamped;
         transformStamped.header.stamp = stamp;
         transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = "lio_odom";
+        transformStamped.child_frame_id = lio_frame_;
         transformStamped.transform.translation.x = lio_to_map.translation().x();
         transformStamped.transform.translation.y = lio_to_map.translation().y();
         transformStamped.transform.translation.z = lio_to_map.translation().z();
@@ -220,6 +221,7 @@ public:
 
 private:
     simple_lio_localization::SimpleLIOLoc loc_;
+    std::string lio_frame_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_body_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;

@@ -22,6 +22,7 @@ public:
         this->declare_parameter<int>("frames_accumulate", 1);
         this->declare_parameter<double>("min_registration_distance", 0);
         this->declare_parameter<bool>("asynchronous_registration", false);
+        this->declare_parameter<bool>("publish_2d_pose", false);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -63,6 +64,12 @@ public:
         if (this->get_parameter("asynchronous_registration").as_bool()) {
             RCLCPP_INFO(this->get_logger(), "Asynchronous registration enabled");
             loc_.startAsynchronousRegistration();
+        }
+        publish_2d_pose_ = this->get_parameter("publish_2d_pose").as_bool();
+        if (publish_2d_pose_) {
+            RCLCPP_INFO(this->get_logger(), "2D pose projection enabled");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "2D pose projection disabled");
         }
     }
 
@@ -113,6 +120,17 @@ public:
         return pose;
     }
 
+    Eigen::Isometry3d projectTo2D(const Eigen::Isometry3d& pose_3d)
+    {
+        Eigen::Isometry3d pose_2d = Eigen::Isometry3d::Identity();
+        pose_2d.translation() << pose_3d.translation().x(), pose_3d.translation().y(), 0.0;
+        Eigen::Matrix3d rot_matrix = pose_3d.rotation();
+        double yaw = std::atan2(rot_matrix(1, 0), rot_matrix(0, 0));
+        Eigen::AngleAxisd rotation_z(yaw, Eigen::Vector3d::UnitZ());
+        pose_2d.rotate(rotation_z);
+        return pose_2d;
+    }
+
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
         RCLCPP_INFO(this->get_logger(), "Received Odometry data");
@@ -122,16 +140,13 @@ public:
         RCLCPP_INFO(this->get_logger(), "LIO Orientation: x=%f, y=%f, z=%f, w=%f", orientation.x, orientation.y, orientation.z, orientation.w);
         odom_buffer_.push_back(*msg);
 
-        // simulated odometry for debug
-        geometry_msgs::msg::TransformStamped tf_odom_to_base;
-        tf_odom_to_base.header.stamp = msg->header.stamp;
-        tf_odom_to_base.header.frame_id = "odom";
-        tf_odom_to_base.child_frame_id = "base_link";
-        tf_odom_to_base.transform.translation.x = msg->pose.pose.position.x;
-        tf_odom_to_base.transform.translation.y = msg->pose.pose.position.y;
-        tf_odom_to_base.transform.translation.z = msg->pose.pose.position.z;
-        tf_odom_to_base.transform.rotation = msg->pose.pose.orientation;
-        tf_broadcaster_->sendTransform(tf_odom_to_base);
+        if (publish_2d_pose_) {
+            Eigen::Isometry3d odom3d = Eigen::Isometry3d::Identity();
+            odom3d.translation() << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
+            odom3d.rotate(Eigen::Quaterniond(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z));
+            Eigen::Isometry3d odom2d = projectTo2D(odom3d);
+            publish_transform(msg->header.stamp, odom2d, "odom", "base_link");
+        }
 
         update(msg->header.stamp);
     }
@@ -182,7 +197,10 @@ public:
         cloud_buffer_.pop_front();
 
         publish_estimated_pose(stamp, pose);
-        publish_transform(stamp, loc_.getLIOToMap());
+        publish_transform(stamp, loc_.getLIOToMap(), "map", lio_frame_);
+        if (publish_2d_pose_) {
+            publish_2d_transform(stamp, loc_.getLIOToMap());
+        }
     }
 
     void publish_estimated_pose(const rclcpp::Time &stamp, const simple_lio_localization::Pose3d &pose)
@@ -201,12 +219,12 @@ public:
         pose_pub_->publish(pose_msg);
     }
 
-    void publish_transform(const rclcpp::Time &stamp, const simple_lio_localization::Pose3d &lio_to_map)
+    void publish_transform(const rclcpp::Time &stamp, const simple_lio_localization::Pose3d &lio_to_map, const std::string frame_id, const std::string child_frame_id)
     {
         geometry_msgs::msg::TransformStamped transformStamped;
         transformStamped.header.stamp = stamp;
-        transformStamped.header.frame_id = "map";
-        transformStamped.child_frame_id = lio_frame_;
+        transformStamped.header.frame_id = frame_id;
+        transformStamped.child_frame_id = child_frame_id;
         transformStamped.transform.translation.x = lio_to_map.translation().x();
         transformStamped.transform.translation.y = lio_to_map.translation().y();
         transformStamped.transform.translation.z = lio_to_map.translation().z();
@@ -218,9 +236,16 @@ public:
         tf_broadcaster_->sendTransform(transformStamped);
     }
 
+    void publish_2d_transform(const rclcpp::Time &stamp, const Eigen::Isometry3d &lio_to_map)
+    {
+        Eigen::Isometry3d lio_to_map2d = projectTo2D(lio_to_map);
+        publish_transform(stamp, lio_to_map2d, "map", "odom");
+    }
+
 private:
     simple_lio_localization::SimpleLIOLoc loc_;
     std::string lio_frame_;
+    bool publish_2d_pose_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;

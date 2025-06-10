@@ -12,6 +12,7 @@ def launch_setup(context, *args, **kwargs):
     frames_accumulate = LaunchConfiguration('frames_accumulate').perform(context)
     min_registration_distance = LaunchConfiguration('min_registration_distance').perform(context)
     async_registration = LaunchConfiguration('async_registration').perform(context)
+    publish_2d_pose = LaunchConfiguration('publish_2d_pose').perform(context)
 
     # Topic remapping configurations
     odom_topic = LaunchConfiguration('odom_topic').perform(context)
@@ -31,6 +32,7 @@ def launch_setup(context, *args, **kwargs):
                 'frames_accumulate': int(frames_accumulate),
                 'min_registration_distance': float(min_registration_distance),
                 'asynchronous_registration': async_registration.lower() == 'true',
+                'publish_2d_pose': publish_2d_pose.lower() == 'true',
             }],
             remappings=[
                 ('/Odometry', odom_topic),
@@ -51,6 +53,7 @@ def generate_launch_description():
         DeclareLaunchArgument('frames_accumulate', default_value='1', description='No. of frames accumulate for matching'),
         DeclareLaunchArgument('min_registration_distance', default_value='0', description='Minimum distance for registration'),
         DeclareLaunchArgument('async_registration', default_value='true', description='Async registration'),
+        DeclareLaunchArgument('publish_2d_pose', default_value='false', description='Publish 2D pose as /map -> /odom transform'),
         DeclareLaunchArgument('rviz', default_value='true', description='Launch Rviz'),
 
         DeclareLaunchArgument('odom_topic', default_value='/Odometry', description='Odometry topic name'),

@@ -24,8 +24,6 @@ public:
         this->declare_parameter<bool>("asynchronous_registration", false);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
-        cloud_body_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-                "/cloud_registered_body", 10, std::bind(&FastLIOHandler::cloudCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
                 "/cloud_registered", 10, std::bind(&FastLIOHandler::cloudCallback, this, std::placeholders::_1));
         pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/estimated_pose", 10);
@@ -223,7 +221,6 @@ private:
     simple_lio_localization::SimpleLIOLoc loc_;
     std::string lio_frame_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_body_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;

@@ -12,6 +12,8 @@ find_package(ament_cmake REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(Boost REQUIRED COMPONENTS date_time)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -46,7 +48,7 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  DIRECTORY config launch rviz
+  DIRECTORY launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
 

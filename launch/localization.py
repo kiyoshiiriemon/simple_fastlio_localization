@@ -45,7 +45,7 @@ def launch_setup(context, *args, **kwargs):
 
 def generate_launch_description():
     package_path = get_package_share_directory('simple_fastlio_localization')
-    rviz_config_path = os.path.join(package_path, 'rviz', 'loc.rviz')
+    default_rviz_config_path = os.path.join(package_path, 'rviz', 'loc.rviz')
 
     return LaunchDescription([
         DeclareLaunchArgument('map_file', default_value='', description='Path to the map file'),
@@ -55,6 +55,7 @@ def generate_launch_description():
         DeclareLaunchArgument('async_registration', default_value='true', description='Async registration'),
         DeclareLaunchArgument('publish_2d_pose', default_value='false', description='Publish 2D pose as /map -> /odom transform'),
         DeclareLaunchArgument('rviz', default_value='true', description='Launch Rviz'),
+        DeclareLaunchArgument('rviz_config', default_value=default_rviz_config_path, description='Path to the RViz config file'),
 
         DeclareLaunchArgument('odom_topic', default_value='/Odometry', description='Odometry topic name'),
         DeclareLaunchArgument('cloud_odom_topic', default_value='/cloud_registered', description='Odometry frame cloud topic name'),
@@ -65,7 +66,7 @@ def generate_launch_description():
             package='rviz2',
             executable='rviz2',
             name='rviz',
-            arguments=['-d', rviz_config_path],
+            arguments=['-d', LaunchConfiguration('rviz_config')],
             output='screen',
             condition=IfCondition(LaunchConfiguration('rviz'))
         ),

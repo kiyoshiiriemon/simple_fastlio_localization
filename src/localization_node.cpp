@@ -23,6 +23,7 @@ public:
         this->declare_parameter<double>("min_registration_distance", 0);
         this->declare_parameter<bool>("asynchronous_registration", false);
         this->declare_parameter<bool>("publish_2d_pose", false);
+        this->declare_parameter<bool>("visualize_registration_result", false);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -70,6 +71,12 @@ public:
             RCLCPP_INFO(this->get_logger(), "2D pose projection enabled");
         } else {
             RCLCPP_INFO(this->get_logger(), "2D pose projection disabled");
+        }
+        visualize_registration_result_ = this->get_parameter("visualize_registration_result").as_bool();
+        if (visualize_registration_result_) {
+            RCLCPP_INFO(this->get_logger(), "Registration result visualization enabled");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Registration result visualization disabled");
         }
     }
 
@@ -166,6 +173,8 @@ public:
     {
         std::lock_guard<std::mutex> lock(registered_cloud_mutex_);
         loc_registered_cloud_ = result.pc_registered;
+        loc_registered_cloud_timestamp_ = result.timestamp;
+        colorizePointCloud(loc_registered_cloud_, result.converged);
     }
 
     void update(const rclcpp::Time &stamp)
@@ -176,7 +185,7 @@ public:
                 sensor_msgs::msg::PointCloud2 cloud_msg;
                 pcl::toROSMsg(loc_registered_cloud_, cloud_msg);
                 cloud_msg.header.frame_id = "map";
-                pcl::toROSMsg(loc_registered_cloud_, cloud_msg);
+                cloud_msg.header.stamp = rclcpp::Time(loc_registered_cloud_timestamp_);
                 registration_pub_->publish(cloud_msg);
                 loc_registered_cloud_.clear();
             }
@@ -189,7 +198,8 @@ public:
         simple_lio_localization::Pose3d lio_pose = simple_lio_localization::Pose3d::Identity();
         lio_pose.translation() << odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z;
         lio_pose.rotate(Eigen::Quaterniond(odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z));
-        loc_.update(*cloud, lio_pose, simple_lio_localization::CoordinateFrame::LIO);
+        double timestamp = stamp.seconds();
+        loc_.update(*cloud, lio_pose, timestamp, simple_lio_localization::CoordinateFrame::LIO);
         Eigen::Isometry3d pose = loc_.getPose();
 
         RCLCPP_INFO(this->get_logger(), "Pose: x=%f, y=%f, z=%f", pose.translation().x(), pose.translation().y(), pose.translation().z());
@@ -242,10 +252,22 @@ public:
         publish_transform(stamp, lio_to_map2d, "map", "odom");
     }
 
+    void colorizePointCloud(simple_lio_localization::PointCloudPCL &cloud, bool success)
+    {
+        if (!visualize_registration_result_) return;
+        
+        if (!success) {
+            for (auto &point : cloud.points) {
+                point.intensity = 0.0f;
+            }
+        }
+    }
+
 private:
     simple_lio_localization::SimpleLIOLoc loc_;
     std::string lio_frame_;
     bool publish_2d_pose_;
+    bool visualize_registration_result_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
@@ -256,6 +278,7 @@ private:
     boost::circular_buffer<simple_lio_localization::PointCloudPCL::Ptr> cloud_buffer_;
     std::mutex registered_cloud_mutex_;
     simple_lio_localization::PointCloudPCL loc_registered_cloud_;
+    double loc_registered_cloud_timestamp_;
 };
 
 int main(int argc, char **argv)

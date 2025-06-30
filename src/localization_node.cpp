@@ -5,6 +5,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <mutex>
 #include <boost/circular_buffer.hpp>
@@ -24,6 +25,7 @@ public:
         this->declare_parameter<bool>("asynchronous_registration", false);
         this->declare_parameter<bool>("publish_2d_pose", false);
         this->declare_parameter<bool>("visualize_registration_result", false);
+        this->declare_parameter<bool>("enable_sound", false);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -77,6 +79,12 @@ public:
             RCLCPP_INFO(this->get_logger(), "Registration result visualization enabled");
         } else {
             RCLCPP_INFO(this->get_logger(), "Registration result visualization disabled");
+        }
+        enable_sound_ = this->get_parameter("enable_sound").as_bool();
+        if (enable_sound_) {
+            RCLCPP_INFO(this->get_logger(), "Sound notification enabled");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Sound notification disabled");
         }
     }
 
@@ -175,6 +183,7 @@ public:
         loc_registered_cloud_ = result.pc_registered;
         loc_registered_cloud_timestamp_ = result.timestamp;
         colorizePointCloud(loc_registered_cloud_, result.converged);
+        playRegistrationSound(result.converged);
     }
 
     void update(const rclcpp::Time &stamp)
@@ -263,11 +272,29 @@ public:
         }
     }
 
+    void playRegistrationSound(bool success)
+    {
+        if (!enable_sound_) return;
+        
+        std::string package_path = ament_index_cpp::get_package_share_directory("simple_fastlio_localization");
+        std::string sound_file;
+        
+        if (success) {
+            sound_file = package_path + "/sounds/popi.wav";
+        } else {
+            sound_file = package_path + "/sounds/pipi.wav";
+        }
+        
+        std::string command = "aplay " + sound_file + " &";
+        std::system(command.c_str());
+    }
+
 private:
     simple_lio_localization::SimpleLIOLoc loc_;
     std::string lio_frame_;
     bool publish_2d_pose_;
     bool visualize_registration_result_;
+    bool enable_sound_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;

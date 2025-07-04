@@ -15,7 +15,7 @@
 class FastLIOHandler : public rclcpp::Node
 {
 public:
-    FastLIOHandler() : Node("fast_lio_handler"), odom_buffer_(10), cloud_buffer_(10)
+    FastLIOHandler() : Node("fast_lio_handler"), odom_buffer_(1), cloud_buffer_(1)
     {
         this->declare_parameter<std::string>("map_file", "");
         this->declare_parameter<std::string>("initial_pose", "");
@@ -176,7 +176,6 @@ public:
                 sensor_msgs::msg::PointCloud2 cloud_msg;
                 pcl::toROSMsg(loc_registered_cloud_, cloud_msg);
                 cloud_msg.header.frame_id = "map";
-                pcl::toROSMsg(loc_registered_cloud_, cloud_msg);
                 registration_pub_->publish(cloud_msg);
                 loc_registered_cloud_.clear();
             }
@@ -184,8 +183,8 @@ public:
 
         if (odom_buffer_.empty() || cloud_buffer_.empty()) return;
 
-        const auto& odom = odom_buffer_.front();
-        const auto& cloud = cloud_buffer_.front();
+        const auto& odom = odom_buffer_.back();
+        const auto& cloud = cloud_buffer_.back();
         simple_lio_localization::Pose3d lio_pose = simple_lio_localization::Pose3d::Identity();
         lio_pose.translation() << odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z;
         lio_pose.rotate(Eigen::Quaterniond(odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z));
@@ -193,8 +192,8 @@ public:
         Eigen::Isometry3d pose = loc_.getPose();
 
         RCLCPP_INFO(this->get_logger(), "Pose: x=%f, y=%f, z=%f", pose.translation().x(), pose.translation().y(), pose.translation().z());
-        odom_buffer_.pop_front();
-        cloud_buffer_.pop_front();
+        odom_buffer_.clear();
+        cloud_buffer_.clear();
 
         publish_estimated_pose(stamp, pose);
         publish_transform(stamp, loc_.getLIOToMap(), "map", lio_frame_);

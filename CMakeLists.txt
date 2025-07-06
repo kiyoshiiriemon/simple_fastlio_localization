@@ -9,6 +9,7 @@ add_subdirectory(simple_lio_localization)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
@@ -27,6 +28,7 @@ target_include_directories(localization_node PUBLIC
 target_compile_features(localization_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 target_link_libraries(localization_node simple_lio_localization)
 ament_target_dependencies(localization_node
+  ament_index_cpp
   sensor_msgs
   nav_msgs
   pcl_ros
@@ -48,7 +50,7 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  DIRECTORY launch rviz
+  DIRECTORY launch rviz sounds
   DESTINATION share/${PROJECT_NAME}
 )
 

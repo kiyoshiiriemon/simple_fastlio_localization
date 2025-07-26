@@ -13,6 +13,16 @@
 #include "simple_lio_loc.h"
 #include "loc_types.h"
 
+static Eigen::Isometry3d pose_from_odom(const nav_msgs::msg::Odometry &odom)
+{
+    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+    pose.translation() << odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z;
+    Eigen::Quaterniond q(odom.pose.pose.orientation.w, odom.pose.pose.orientation.x,
+                         odom.pose.pose.orientation.y, odom.pose.pose.orientation.z);
+    pose.rotate(q);
+    return pose;
+}
+
 class FastLIOHandler : public rclcpp::Node
 {
 public:
@@ -26,6 +36,7 @@ public:
         this->declare_parameter<bool>("publish_2d_pose", false);
         this->declare_parameter<bool>("visualize_registration_result", false);
         this->declare_parameter<bool>("enable_sound", false);
+        this->declare_parameter<bool>("enable_lio_only_update", false);
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -85,6 +96,12 @@ public:
             RCLCPP_INFO(this->get_logger(), "Sound notification enabled");
         } else {
             RCLCPP_INFO(this->get_logger(), "Sound notification disabled");
+        }
+        lio_only_update_ = this->get_parameter("enable_lio_only_update").as_bool();
+        if (lio_only_update_) {
+            RCLCPP_INFO(this->get_logger(), "LIO only update enabled");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "LIO only update disabled");
         }
     }
 
@@ -156,9 +173,7 @@ public:
         odom_buffer_.push_back(*msg);
 
         if (publish_2d_pose_) {
-            Eigen::Isometry3d odom3d = Eigen::Isometry3d::Identity();
-            odom3d.translation() << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
-            odom3d.rotate(Eigen::Quaterniond(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z));
+            Eigen::Isometry3d odom3d = pose_from_odom(*msg);
             Eigen::Isometry3d odom2d = projectTo2D(odom3d);
             publish_transform(msg->header.stamp, odom2d, "odom", "base_link");
         }
@@ -200,20 +215,23 @@ public:
             }
         }
 
-        if (odom_buffer_.empty() || cloud_buffer_.empty()) return;
-
-        const auto& odom = odom_buffer_.back();
-        const auto& cloud = cloud_buffer_.back();
-        simple_lio_localization::Pose3d lio_pose = simple_lio_localization::Pose3d::Identity();
-        lio_pose.translation() << odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z;
-        lio_pose.rotate(Eigen::Quaterniond(odom.pose.pose.orientation.w, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z));
-        double timestamp = stamp.seconds();
-        loc_.update(*cloud, lio_pose, timestamp, simple_lio_localization::CoordinateFrame::LIO);
+        if (lio_only_update_ && !odom_buffer_.empty() && cloud_buffer_.empty()) {
+            const auto &odom = odom_buffer_.back();
+            loc_.updateLIO(pose_from_odom(odom));
+            RCLCPP_INFO(this->get_logger(), "LIO only update");
+        } else if (odom_buffer_.empty() || cloud_buffer_.empty()) {
+            return;
+        } else {
+            const auto &odom = odom_buffer_.back();
+            const auto &cloud = cloud_buffer_.back();
+            simple_lio_localization::Pose3d lio_pose = pose_from_odom(odom);
+            double timestamp = stamp.seconds();
+            loc_.update(*cloud, lio_pose, timestamp, simple_lio_localization::CoordinateFrame::LIO);
+            odom_buffer_.clear();
+            cloud_buffer_.clear();
+        }
         Eigen::Isometry3d pose = loc_.getPose();
-
         RCLCPP_INFO(this->get_logger(), "Pose: x=%f, y=%f, z=%f", pose.translation().x(), pose.translation().y(), pose.translation().z());
-        odom_buffer_.clear();
-        cloud_buffer_.clear();
 
         publish_estimated_pose(stamp, pose);
         publish_transform(stamp, loc_.getLIOToMap(), "map", lio_frame_);
@@ -295,6 +313,7 @@ private:
     bool publish_2d_pose_;
     bool visualize_registration_result_;
     bool enable_sound_;
+    bool lio_only_update_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;

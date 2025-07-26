@@ -15,6 +15,7 @@ def launch_setup(context, *args, **kwargs):
     publish_2d_pose = LaunchConfiguration('publish_2d_pose').perform(context)
     visualize_registration_result = LaunchConfiguration('visualize_registration_result').perform(context)
     enable_sound = LaunchConfiguration('enable_sound').perform(context)
+    enable_lio_only_update = LaunchConfiguration('enable_lio_only_update').perform(context)
 
     # Topic remapping configurations
     odom_topic = LaunchConfiguration('odom_topic').perform(context)
@@ -37,6 +38,7 @@ def launch_setup(context, *args, **kwargs):
                 'publish_2d_pose': publish_2d_pose.lower() == 'true',
                 'visualize_registration_result': visualize_registration_result.lower() == 'true',
                 'enable_sound': enable_sound.lower() == 'true',
+                'enable_lio_only_update': enable_lio_only_update.lower() == 'true',
             }],
             remappings=[
                 ('/Odometry', odom_topic),
@@ -60,6 +62,7 @@ def generate_launch_description():
         DeclareLaunchArgument('publish_2d_pose', default_value='false', description='Publish 2D pose as /map -> /odom transform'),
         DeclareLaunchArgument('visualize_registration_result', default_value='false', description='Visualize registration result with color coding'),
         DeclareLaunchArgument('enable_sound', default_value='false', description='Enable sound notification for registration results'),
+        DeclareLaunchArgument('enable_lio_only_update', default_value='false', description='Update self-pose on receiving lio without pointcloud registration'),
         DeclareLaunchArgument('rviz', default_value='true', description='Launch Rviz'),
         DeclareLaunchArgument('rviz_config', default_value=default_rviz_config_path, description='Path to the RViz config file'),
 

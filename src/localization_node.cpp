@@ -130,7 +130,10 @@ public:
         double x = 0.0, y = 0.0, z = 0.4;
         double qx = 0.0, qy = 0.0, qz = 0.0, qw = 1.0;
 
-        std::istringstream iss(pose_str);
+        std::string processed_str = pose_str;
+        std::replace(processed_str.begin(), processed_str.end(), ',', ' ');
+        
+        std::istringstream iss(processed_str);
         iss >> x >> y >> z >> qx >> qy >> qz >> qw;
         Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
         pose.translation() << x, y, z;

@@ -11,6 +11,7 @@ def launch_setup(context, *args, **kwargs):
     initial_pose = LaunchConfiguration('initial_pose').perform(context)
     frames_accumulate = LaunchConfiguration('frames_accumulate').perform(context)
     min_registration_distance = LaunchConfiguration('min_registration_distance').perform(context)
+    min_registration_interval_sec = LaunchConfiguration('min_registration_interval_sec').perform(context)
     async_registration = LaunchConfiguration('async_registration').perform(context)
     publish_2d_pose = LaunchConfiguration('publish_2d_pose').perform(context)
     visualize_registration_result = LaunchConfiguration('visualize_registration_result').perform(context)
@@ -34,6 +35,7 @@ def launch_setup(context, *args, **kwargs):
                 'initial_pose': initial_pose,
                 'frames_accumulate': int(frames_accumulate),
                 'min_registration_distance': float(min_registration_distance),
+                'min_registration_interval_sec': float(min_registration_interval_sec),
                 'asynchronous_registration': async_registration.lower() == 'true',
                 'publish_2d_pose': publish_2d_pose.lower() == 'true',
                 'visualize_registration_result': visualize_registration_result.lower() == 'true',
@@ -58,6 +60,7 @@ def generate_launch_description():
         DeclareLaunchArgument('initial_pose', default_value='0.0 0.0 0.0 0.0 0.0 0.0 1.0', description='Initial pose'),
         DeclareLaunchArgument('frames_accumulate', default_value='1', description='No. of frames accumulate for matching'),
         DeclareLaunchArgument('min_registration_distance', default_value='0', description='Minimum distance for registration'),
+        DeclareLaunchArgument('min_registration_interval_sec', default_value='0.0', description='Minimum time interval in seconds between registrations'),
         DeclareLaunchArgument('async_registration', default_value='true', description='Async registration'),
         DeclareLaunchArgument('publish_2d_pose', default_value='false', description='Publish 2D pose as /map -> /odom transform'),
         DeclareLaunchArgument('visualize_registration_result', default_value='false', description='Visualize registration result with color coding'),

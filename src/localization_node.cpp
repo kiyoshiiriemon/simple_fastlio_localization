@@ -32,6 +32,7 @@ public:
         this->declare_parameter<std::string>("initial_pose", "");
         this->declare_parameter<int>("frames_accumulate", 1);
         this->declare_parameter<double>("min_registration_distance", 0);
+        this->declare_parameter<double>("min_registration_interval_sec", 0.0);
         this->declare_parameter<bool>("asynchronous_registration", false);
         this->declare_parameter<bool>("publish_2d_pose", false);
         this->declare_parameter<bool>("visualize_registration_result", false);
@@ -70,8 +71,11 @@ public:
         simple_lio_localization::Params params;
         params.frames_accumulate = this->get_parameter("frames_accumulate").as_int();
         params.min_registration_distance = this->get_parameter("min_registration_distance").as_double();
+        params.min_registration_interval_sec = this->get_parameter("min_registration_interval_sec").as_double();
+        params.max_accumulate_frames = params.frames_accumulate;
         RCLCPP_INFO(this->get_logger(), "frames_accumulate: %d", params.frames_accumulate);
         RCLCPP_INFO(this->get_logger(), "min_registration_distance: %f", params.min_registration_distance);
+        RCLCPP_INFO(this->get_logger(), "min_registration_interval_sec: %f", params.min_registration_interval_sec);
         loc_.setParams(params);
         loc_.setRegistrationDoneCallback(std::bind(&FastLIOHandler::registrationCallback, this, std::placeholders::_1));
 

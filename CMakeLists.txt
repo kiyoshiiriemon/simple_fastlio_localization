@@ -13,6 +13,7 @@ find_package(ament_index_cpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS date_time)
 
 # uncomment the following section in order to fill in
@@ -20,6 +21,8 @@ find_package(Boost REQUIRED COMPONENTS date_time)
 # find_package(<dependency> REQUIRED)
 
 add_executable(localization_node src/localization_node.cpp)
+add_executable(run_with_rosbag src/run_with_rosbag.cpp)
+
 target_include_directories(localization_node PUBLIC
   simple_lio_localization/include
   simple_lio_localization/thirdparty/small_gicp/include
@@ -34,7 +37,22 @@ ament_target_dependencies(localization_node
   pcl_ros
 )
 
-install(TARGETS localization_node
+target_include_directories(run_with_rosbag PUBLIC
+  simple_lio_localization/include
+  simple_lio_localization/thirdparty/small_gicp/include
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
+target_compile_features(run_with_rosbag PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_link_libraries(run_with_rosbag simple_lio_localization)
+ament_target_dependencies(run_with_rosbag
+  ament_index_cpp
+  rosbag2_cpp
+  sensor_msgs
+  nav_msgs
+  pcl_ros
+)
+
+install(TARGETS localization_node run_with_rosbag
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

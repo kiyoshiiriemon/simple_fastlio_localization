@@ -17,6 +17,7 @@ def launch_setup(context, *args, **kwargs):
     visualize_registration_result = LaunchConfiguration('visualize_registration_result').perform(context)
     enable_sound = LaunchConfiguration('enable_sound').perform(context)
     enable_lio_only_update = LaunchConfiguration('enable_lio_only_update').perform(context)
+    input_cloud_frame = LaunchConfiguration('input_cloud_frame').perform(context)
 
     # Topic remapping configurations
     odom_topic = LaunchConfiguration('odom_topic').perform(context)
@@ -41,6 +42,7 @@ def launch_setup(context, *args, **kwargs):
                 'visualize_registration_result': visualize_registration_result.lower() == 'true',
                 'enable_sound': enable_sound.lower() == 'true',
                 'enable_lio_only_update': enable_lio_only_update.lower() == 'true',
+                'input_cloud_frame': input_cloud_frame,
             }],
             remappings=[
                 ('/Odometry', odom_topic),
@@ -66,11 +68,12 @@ def generate_launch_description():
         DeclareLaunchArgument('visualize_registration_result', default_value='false', description='Visualize registration result with color coding'),
         DeclareLaunchArgument('enable_sound', default_value='false', description='Enable sound notification for registration results'),
         DeclareLaunchArgument('enable_lio_only_update', default_value='false', description='Update self-pose on receiving lio without pointcloud registration'),
+        DeclareLaunchArgument('input_cloud_frame', default_value='lio', description='Coordinate frame of input cloud: "lio" (odometry frame, e.g. /cloud_registered) or "local" (sensor frame, e.g. /cloud_body)'),
         DeclareLaunchArgument('rviz', default_value='true', description='Launch Rviz'),
         DeclareLaunchArgument('rviz_config', default_value=default_rviz_config_path, description='Path to the RViz config file'),
 
         DeclareLaunchArgument('odom_topic', default_value='/Odometry', description='Odometry topic name'),
-        DeclareLaunchArgument('cloud_odom_topic', default_value='/cloud_registered', description='Odometry frame cloud topic name'),
+        DeclareLaunchArgument('cloud_odom_topic', default_value='/cloud_registered', description='Input cloud topic name (set input_cloud_frame to select coordinate frame)'),
         DeclareLaunchArgument('pose_topic', default_value='/estimated_pose', description='Estimated pose output topic name'),
         DeclareLaunchArgument('map_topic', default_value='/map_cloud', description='Map cloud output topic name'),
 

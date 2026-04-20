@@ -38,6 +38,7 @@ public:
         this->declare_parameter<bool>("visualize_registration_result", false);
         this->declare_parameter<bool>("enable_sound", false);
         this->declare_parameter<bool>("enable_lio_only_update", false);
+        this->declare_parameter<std::string>("input_cloud_frame", "lio");
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
                 "/Odometry", 10, std::bind(&FastLIOHandler::odomCallback, this, std::placeholders::_1));
         cloud_odom_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -106,6 +107,14 @@ public:
             RCLCPP_INFO(this->get_logger(), "LIO only update enabled");
         } else {
             RCLCPP_INFO(this->get_logger(), "LIO only update disabled");
+        }
+        std::string frame_str = this->get_parameter("input_cloud_frame").as_string();
+        if (frame_str == "local") {
+            input_cloud_frame_ = simple_lio_localization::CoordinateFrame::LOCAL;
+            RCLCPP_INFO(this->get_logger(), "Input cloud frame: local (sensor frame)");
+        } else {
+            input_cloud_frame_ = simple_lio_localization::CoordinateFrame::LIO;
+            RCLCPP_INFO(this->get_logger(), "Input cloud frame: lio (odometry frame)");
         }
     }
 
@@ -233,7 +242,7 @@ public:
             const auto &cloud = cloud_buffer_.back();
             simple_lio_localization::Pose3d lio_pose = pose_from_odom(odom);
             double timestamp = stamp.seconds();
-            loc_.update(*cloud, lio_pose, timestamp, simple_lio_localization::CoordinateFrame::LIO);
+            loc_.update(*cloud, lio_pose, timestamp, input_cloud_frame_);
             odom_buffer_.clear();
             cloud_buffer_.clear();
         }
@@ -321,6 +330,7 @@ private:
     bool visualize_registration_result_;
     bool enable_sound_;
     bool lio_only_update_;
+    simple_lio_localization::CoordinateFrame input_cloud_frame_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
